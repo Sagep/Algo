@@ -1,8 +1,9 @@
-#include<fstream>
-#include<string>
-#include<iomanip>
+#include <fstream>
+#include <string>
+#include <iomanip>
 //previously had istream not iostream.
-#include<iostream>
+#include <iostream>
+
 using namespace std;
 
 int alphabet[52];
