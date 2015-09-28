@@ -33,7 +33,33 @@ public:
 	const node *left;
 	const node *right;
 	inode(node* l0, node* r0) : node(l0->f + r0->f), left(l0), right(r0) {}
+
+
+	~inode() { delete left; delete right; }
 };
+
+class leaves : public node {
+	public:
+		const char c;
+
+		leaves(int f, char c) : node(f), c(c) {}
+};
+
+struct NodeTree{ 
+	
+	bool operator() (const node* lhs, const node* rhs)  const { return lhs->f > rhs->f; }
+
+};
+
+node* Builder(const int(&frequencies)[UniqueSymbols]) {
+	priority_queue<node*, vector<node*>, NodeTree> trees; 
+
+	for (int i = 0; i < UniqueSymbols; ++i) {
+		if (frequencies[i] != 0) trees.push(new leaves(frequencies[i], (char)i));
+	}
+
+
+}
 
 void read(ifstream &inf){
 	string temp;
@@ -76,6 +102,7 @@ int main(int argc, char const *argv[])
 			cout << alphabet[i] << " for the letter of alphabet: " << i << endl;
 	}*/
 	cout << readChar;
+	//compress structure huffman tree
 
 	system("Pause");
 	return 0;
