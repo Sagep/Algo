@@ -13,8 +13,8 @@ using namespace std;
 
 const int UniqueSymbols = 1 << CHAR_BIT;
 string readChar;
-vector<bool> encoding;
-vector<bool>encodingmap;
+typedef vector<bool> encoding;
+typedef vector<bool>encodingmap;
 
 
 //reads in the data into a string so that it may be used as an array of characters.
@@ -58,6 +58,22 @@ node* Builder(const int(&frequencies)[UniqueSymbols]) {
 		if (frequencies[i] != 0) trees.push(new leaves(frequencies[i], (char)i));
 	}
 
+	while (trees.size() > 1) {
+		node* childR = trees.top();
+		trees.pop();
+
+		node* childL = trees.top();
+		trees.pop();
+
+		node* parent = new inode(childR, childL);
+		trees.push(parent);
+	}return trees.top();
+}
+
+void genCode(const node* crazy, const encoding& prefix, encodingmap& outCodes) {
+	if (const leaves* lf = dynamic_cast<const leaves*>(crazy)) {
+		outCodes[lf->c] = prefix;
+	}
 
 }
 
