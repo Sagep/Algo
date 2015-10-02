@@ -12,9 +12,9 @@
 using namespace std;
 
 const int UniqueSymbols = 1 << CHAR_BIT;
-string readChar;
+const char* readChar;
 typedef vector<bool> encoding;
-typedef vector<bool>encodingmap;
+typedef map<char ,encoding>encodingmap;
 
 
 //reads in the data into a string so that it may be used as an array of characters.
@@ -22,7 +22,7 @@ class node
 {
 public: 
 	const int f;
-	virtual ~node();
+	virtual ~node() {}
 protected:
 	node(int f) : f(f){};
 };
@@ -74,30 +74,63 @@ void genCode(const node* crazy, const encoding& prefix, encodingmap& outCodes) {
 	if (const leaves* lf = dynamic_cast<const leaves*>(crazy)) {
 		outCodes[lf->c] = prefix;
 	}
+	else if (const inode* in = dynamic_cast<const inode*>(crazy))
+	{
+		encoding leftPrefix = prefix;
+		leftPrefix.push_back(false);
+		genCode(in->left, leftPrefix, outCodes);
 
-}
-
-void read(ifstream &inf){
-	string temp;
-
-	while (!inf.eof()){
-		getline(inf, temp);
-		readChar += temp + "\n";
+		encoding rightPrefix = prefix;
+		rightPrefix.push_back(true);
+		genCode(in -> right, rightPrefix, outCodes);
 	}
+
 }
+
+//void read(ifstream &inf){
+//	string temp;
+//
+//	while (!inf.eof()){
+//		getline(inf, temp);
+//		readChar += temp + "\n";
+//	}
+//}
 
 int main(int argc, char const *argv[])
 {
 	string file;
 	ifstream inf;
 	int lengthofstring;
-	cout << "type location of file: " << endl;
+	/*cout << "type location of file: " << endl;
 	cin >> file;
-	inf.open(file);
-	read(inf);
+	inf.open(file);*/
+	//read(inf);
 
-	//how many characters do we have in the string?
-	lengthofstring = readChar.length();
+	int frequencies[UniqueSymbols] = { 0 };
+	const char* ptr = "heyworlde";
+	while (ptr != '\0')
+		++frequencies[*ptr++];
+
+	node* root = Builder(frequencies);
+	encodingmap codes;
+	genCode(root, encoding(), codes);
+	delete root;
+
+	for (encodingmap::const_iterator it = codes.begin(); it != codes.end(); ++it) {
+		cout << it->first << " ";
+		copy(it->second.begin(), it->second.end(),
+			ostream_iterator<bool>(cout)
+			);
+		cout << endl;
+
+
+	}
+
+
+
+
+	
+	
 	//---------------------------------------------
 
 
@@ -117,7 +150,7 @@ int main(int argc, char const *argv[])
 		if (alphabet[i] != 0)
 			cout << alphabet[i] << " for the letter of alphabet: " << i << endl;
 	}*/
-	cout << readChar;
+	
 	//compress structure huffman tree
 
 	system("Pause");
