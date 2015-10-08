@@ -1,157 +1,174 @@
-#include <fstream>
-#include <string>
-#include <iomanip>
-//previously had istream not iostream.
 #include <iostream>
 #include <queue>
 #include <map>
 #include <climits> // for CHAR_BIT
 #include <iterator>
 #include <algorithm>
+#include <fstream>
+#include <string>
+#include <iomanip>
+#include <string>
 
 using namespace std;
 
 const int UniqueSymbols = 1 << CHAR_BIT;
-const char* readChar;
-typedef vector<bool> encoding;
-typedef map<char ,encoding>encodingmap;
+typedef vector<bool> HuffCode;
+typedef map<char, HuffCode> HuffCodeMap;
 
-
-//reads in the data into a string so that it may be used as an array of characters.
-class node
+class INode
 {
-public: 
+public:
 	const int f;
-	virtual ~node() {}
+
+	virtual ~INode() {}
+
 protected:
-	node(int f) : f(f){};
+	INode(int f) : f(f) {}
 };
 
-class inode : public node
+class InternalNode : public INode
 {
-public: 
-	const node *left;
-	const node *right;
-	inode(node* l0, node* r0) : node(l0->f + r0->f), left(l0), right(r0) {}
+public:
+	INode *const left;
+	INode *const right;
 
-
-	~inode() { delete left; delete right; }
-};
-
-class leaves : public node {
-	public:
-		const char c;
-
-		leaves(int f, char c) : node(f), c(c) {}
-};
-
-struct NodeTree{ 
-	
-	bool operator() (const node* lhs, const node* rhs)  const { return lhs->f > rhs->f; }
-
-};
-
-node* Builder(const int(&frequencies)[UniqueSymbols]) {
-	priority_queue<node*, vector<node*>, NodeTree> trees; 
-
-	for (int i = 0; i < UniqueSymbols; ++i) {
-		if (frequencies[i] != 0) trees.push(new leaves(frequencies[i], (char)i));
-	}
-
-	while (trees.size() > 1) {
-		node* childR = trees.top();
-		trees.pop();
-
-		node* childL = trees.top();
-		trees.pop();
-
-		node* parent = new inode(childR, childL);
-		trees.push(parent);
-	}return trees.top();
-}
-
-void genCode(const node* crazy, const encoding& prefix, encodingmap& outCodes) {
-	if (const leaves* lf = dynamic_cast<const leaves*>(crazy)) {
-		outCodes[lf->c] = prefix;
-	}
-	else if (const inode* in = dynamic_cast<const inode*>(crazy))
+	InternalNode(INode* c0, INode* c1) : INode(c0->f + c1->f), left(c0), right(c1) {}
+	~InternalNode()
 	{
-		encoding leftPrefix = prefix;
-		leftPrefix.push_back(false);
-		genCode(in->left, leftPrefix, outCodes);
-
-		encoding rightPrefix = prefix;
-		rightPrefix.push_back(true);
-		genCode(in -> right, rightPrefix, outCodes);
+		delete left;
+		delete right;
 	}
+};
 
+class LeafNode : public INode
+{
+public:
+	const char c;
+
+	LeafNode(int f, char c) : INode(f), c(c) {}
+};
+
+struct NodeCmp
+{
+	bool operator()(const INode* lhs, const INode* rhs) const { return lhs->f > rhs->f; }
+};
+
+INode* BuildTree(const int(&frequencies)[UniqueSymbols])
+{
+	priority_queue<INode*, vector<INode*>, NodeCmp> trees;
+
+	for (int i = 0; i < UniqueSymbols; ++i)
+	{
+		if (frequencies[i] != 0)
+			trees.push(new LeafNode(frequencies[i], (char)i));
+	}
+	while (trees.size() > 1)
+	{
+		INode* childR = trees.top();
+		trees.pop();
+
+		INode* childL = trees.top();
+		trees.pop();
+
+		INode* parent = new InternalNode(childR, childL);
+		trees.push(parent);
+	}
+	return trees.top();
 }
 
-//void read(ifstream &inf){
-//	string temp;
-//
-//	while (!inf.eof()){
-//		getline(inf, temp);
-//		readChar += temp + "\n";
-//	}
-//}
-
-int main(int argc, char const *argv[])
+void GenerateCodes(const INode* node, const HuffCode& prefix, HuffCodeMap& outCodes)
 {
-	string file;
-	ifstream inf;
-	int lengthofstring;
-	/*cout << "type location of file: " << endl;
-	cin >> file;
-	inf.open(file);*/
-	//read(inf);
+if (const LeafNode* lf = dynamic_cast<const LeafNode*>(node))
+{
+	outCodes[lf->c] = prefix;
+}
+else if (const InternalNode* in = dynamic_cast<const InternalNode*>(node))
+{
+	HuffCode leftPrefix = prefix;
+	leftPrefix.push_back(false);
+	GenerateCodes(in->left, leftPrefix, outCodes);
 
+	HuffCode rightPrefix = prefix;
+	rightPrefix.push_back(true);
+	GenerateCodes(in->right, rightPrefix, outCodes);
+}
+}
+
+string read(ifstream &inf){
+	string temp;
+	string temp2 = "";
+
+	while (!inf.eof()){
+		getline(inf, temp);
+		temp2 += temp + "\n";
+	}
+	return temp2;
+}
+
+void outputencodingfile(ofstream & outf, int stringlength, string SampleString, HuffCodeMap codes)
+{
+
+	outf << "asdlkjfsadoutput\n\n";
+	for (HuffCodeMap::const_iterator it = codes.begin(); it != codes.end(); ++it)
+	{
+		outf << it->first << " ";
+		copy(it->second.begin(), it->second.end(),
+			ostream_iterator<bool>(outf));
+		outf << endl;
+	}
+	outf << endl;
+	for (int i = 0; i < stringlength; i++)
+	{
+		for (HuffCodeMap::const_iterator it = codes.begin(); it != codes.end(); ++it)
+		{
+			if (SampleString[i] == it->first)
+			{
+				int number = 0;
+
+				string tempor = string(it->second.begin(), it->second.end());
+				outf << tempor;
+			}
+		}
+	}
+}
+
+int main()
+{
+	// Build frequency table
 	int frequencies[UniqueSymbols] = { 0 };
-	const char* ptr = "heyworlde";
-	while (ptr != '\0')
+	ifstream inf;
+	//Getting userinput
+	//-------------------------------------
+
+	//reading in file and Compressing it.(Has map)
+	cout << "Type in the file location\n";
+	string inputfile;
+	cin >> inputfile;
+	inf.open(inputfile);
+	cout << endl << "Type in the file output location" << endl;
+	string outputfile;
+	cin >> outputfile;
+	ofstream outf;
+	outputfile += "compression.crazzzyy";
+	outf.open(outputfile);
+	//-------------------------------------
+
+	string temper = read(inf);
+	const char* SampleString = &temper[0u];
+	const char* ptr = SampleString;
+	while (*ptr != '\0')
 		++frequencies[*ptr++];
 
-	node* root = Builder(frequencies);
-	encodingmap codes;
-	genCode(root, encoding(), codes);
+	INode* root = BuildTree(frequencies);
+
+	HuffCodeMap codes;
+	GenerateCodes(root, HuffCode(), codes);
 	delete root;
 
-	for (encodingmap::const_iterator it = codes.begin(); it != codes.end(); ++it) {
-		cout << it->first << " ";
-		copy(it->second.begin(), it->second.end(),
-			ostream_iterator<bool>(cout)
-			);
-		cout << endl;
+	int stringlength = 0;
+	stringlength = temper.length();
 
-
-	}
-
-
-
-
-	
-	
-	//---------------------------------------------
-
-
-	/*simple print for us to see what characters that we have
-	(Only shows the number associated with the character. EXE: A=0, B=1...)
-	From here we need to actually sort by amount of chars and print them.
-
-	Note: It would be best if we had MORE characters to search from.
-	EXE: Spaces, colons, semicolons, commas. etc. Currently we only have the alphabet.
-	(Possibility we need the ascii table and how many we have??)
-
-	Stopped for the night as it is 3:00AM.(I got home at 10 and played wow for a hour haha)
-	*/
-	/*
-	for (int i = 0; i < 52; i++)
-	{
-		if (alphabet[i] != 0)
-			cout << alphabet[i] << " for the letter of alphabet: " << i << endl;
-	}*/
-	
-	//compress structure huffman tree
+	outputencodingfile(outf, stringlength, SampleString, codes);
 
 	system("Pause");
 	return 0;
