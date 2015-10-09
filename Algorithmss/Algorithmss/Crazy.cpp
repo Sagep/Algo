@@ -8,6 +8,7 @@
 #include <string>
 #include <iomanip>
 #include <string>
+#include <sstream>
 
 using namespace std;
 
@@ -78,20 +79,20 @@ INode* BuildTree(const int(&frequencies)[UniqueSymbols])
 
 void GenerateCodes(const INode* node, const HuffCode& prefix, HuffCodeMap& outCodes)
 {
-if (const LeafNode* lf = dynamic_cast<const LeafNode*>(node))
-{
-	outCodes[lf->c] = prefix;
-}
-else if (const InternalNode* in = dynamic_cast<const InternalNode*>(node))
-{
-	HuffCode leftPrefix = prefix;
-	leftPrefix.push_back(false);
-	GenerateCodes(in->left, leftPrefix, outCodes);
+	if (const LeafNode* lf = dynamic_cast<const LeafNode*>(node))
+	{
+		outCodes[lf->c] = prefix;
+	}
+	else if (const InternalNode* in = dynamic_cast<const InternalNode*>(node))
+	{
+		HuffCode leftPrefix = prefix;
+		leftPrefix.push_back(false);
+		GenerateCodes(in->left, leftPrefix, outCodes);
 
-	HuffCode rightPrefix = prefix;
-	rightPrefix.push_back(true);
-	GenerateCodes(in->right, rightPrefix, outCodes);
-}
+		HuffCode rightPrefix = prefix;
+		rightPrefix.push_back(true);
+		GenerateCodes(in->right, rightPrefix, outCodes);
+	}
 }
 
 string read(ifstream &inf){
@@ -105,28 +106,41 @@ string read(ifstream &inf){
 	return temp2;
 }
 
-void outputencodingfile(ofstream & outf, int stringlength, string SampleString, HuffCodeMap codes)
+void outputencodingfile(ofstream & outf, string inputfile, int stringlength, string SampleString, HuffCodeMap codes)
 {
 
-	outf << "asdlkjfsadoutput\n\n";
+	outf << "asdlkjfsadoutput\n" + inputfile+"\n";
 	for (HuffCodeMap::const_iterator it = codes.begin(); it != codes.end(); ++it)
 	{
-		outf << it->first << " ";
+		outf << it->first;
 		copy(it->second.begin(), it->second.end(),
 			ostream_iterator<bool>(outf));
 		outf << endl;
 	}
-	outf << endl;
+	outf << "|"<<endl;
 	for (int i = 0; i < stringlength; i++)
 	{
 		for (HuffCodeMap::const_iterator it = codes.begin(); it != codes.end(); ++it)
 		{
 			if (SampleString[i] == it->first)
 			{
-				int number = 0;
+				stringstream buffer;
+				copy(it->second.begin(), it->second.end(),
+					ostream_iterator<bool>(buffer));
+				string encoded = buffer.str();
+				outf << encoded;
 
-				string tempor = string(it->second.begin(), it->second.end());
-				outf << tempor;
+				int counter = 0;
+				string bitss = "";
+				char ascii;
+				for (int k = 0; k < encoded.length(); k++)
+				{
+					if (counter != 8)
+					{
+						bitss += encoded[k];
+						counter++;
+					}
+				}
 			}
 		}
 	}
@@ -137,38 +151,129 @@ int main()
 	// Build frequency table
 	int frequencies[UniqueSymbols] = { 0 };
 	ifstream inf;
+	string inputfile;
 	//Getting userinput
 	//-------------------------------------
+	char check;
+	cout << "Do you want to compress?\n";
+	cin >> check;
+	if (check =='Y')
+	{
+		//reading in file and Compressing it.(Has map)
+		cout << "Type in the file location\n";
+		cin >> inputfile;
+		inf.open(inputfile);
+		cout << endl << "Type in the file output location" << endl;
+		string outputfile;
+		cin >> outputfile;
+		ofstream outf;
+		outputfile += "compression.crazy";
+		outf.open(outputfile);
+		//-------------------------------------
 
-	//reading in file and Compressing it.(Has map)
-	cout << "Type in the file location\n";
-	string inputfile;
-	cin >> inputfile;
-	inf.open(inputfile);
-	cout << endl << "Type in the file output location" << endl;
-	string outputfile;
-	cin >> outputfile;
-	ofstream outf;
-	outputfile += "compression.crazzzyy";
-	outf.open(outputfile);
-	//-------------------------------------
+		string temper = read(inf);
+		const char* SampleString = &temper[0u];
+		const char* ptr = SampleString;
+		while (*ptr != '\0')
+			++frequencies[*ptr++];
+		inf.close();
+		INode* root = BuildTree(frequencies);
 
-	string temper = read(inf);
-	const char* SampleString = &temper[0u];
-	const char* ptr = SampleString;
-	while (*ptr != '\0')
-		++frequencies[*ptr++];
+		HuffCodeMap codes;
+		GenerateCodes(root, HuffCode(), codes);
+		delete root;
 
-	INode* root = BuildTree(frequencies);
+		int stringlength = 0;
+		stringlength = temper.length();
+		outputencodingfile(outf, inputfile, stringlength, SampleString, codes);
+		outf.close();
+	}
+	else
+	{
+		cout << "Please type in the file location to decompress:\n";
+		cin >> inputfile;
+		inf.open(inputfile+"compression.crazy");
+		string decompress="";
+		string security="";
+		inf >> security;
+		if (security != "asdlkjfsadoutput")
+		{
+			cout << "NOPE we are not decompressing this for you. GO away!";
+			system("Pause");
+			return 0;
+		}
+		else
+		{
+			inf.ignore(numeric_limits<streamsize>::max(), '\n');
+			inf.ignore(numeric_limits<streamsize>::max(), '\n');
+			vector<string> decode;
+			int i = 0;
+			string input = "";
+			string compressedinformation="";
+			while (!inf.eof())
+			{
 
-	HuffCodeMap codes;
-	GenerateCodes(root, HuffCode(), codes);
-	delete root;
+				inf >> input;
+				if (input == "|")
+					break;
+				else{
+					decode.push_back(input);
+					//cout << decode[i][0]<<endl;
+					i++;
+				}
+			}
+			while (!inf.eof())
+			{
+				inf >> input;
+				compressedinformation += input;
+				//cout << compressedinformation;
+			}
 
-	int stringlength = 0;
-	stringlength = temper.length();
+			for (int j = 2; j < decode.size(); j++)
+			{
+				int lengthofdecode = decode[j].length();
+				string binary = "";
+				for (int k = 0; k < lengthofdecode; k++)
+				{
+					if (k != 0)
+					{
+						binary += decode[j][k];
+					}
+				}
 
-	outputencodingfile(outf, stringlength, SampleString, codes);
+			}
+
+			int lengthof = compressedinformation.length();
+			string checker = "";
+			for (int i = 0; i <= lengthof; i++)
+			{
+				if (compressedinformation[i] == 1)
+					checker += "1";
+				else
+					checker += "0";
+
+				for (int j = 2; j < decode.size(); j++)
+				{
+					int lengthofdecode = decode[j].length();
+					string binary = "";
+					for (int k = 0; k < lengthofdecode; k++)
+					{
+						if (k != 0)
+						{
+							binary += decode[j][k];
+						}
+					}
+					if (checker == binary)
+					{
+						cout << decode[j][0] << endl;
+						cout << checker;
+						checker = "";
+					}
+				}
+			}
+		}
+		inf.close();
+	}
 
 	system("Pause");
 	return 0;
