@@ -157,7 +157,7 @@ int main()
 	char check;
 	cout << "Do you want to compress?\n";
 	cin >> check;
-	if (check =='Y')
+	if (check =='Y' || 'y')
 	{
 		//reading in file and Compressing it.(Has map)
 		cout << "Type in the file location\n";
