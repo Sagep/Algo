@@ -18,5 +18,8 @@
     <ClCompile Include="Crazy.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="crazyVec.h">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

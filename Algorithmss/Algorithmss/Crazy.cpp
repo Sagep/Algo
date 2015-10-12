@@ -12,269 +12,361 @@
 
 using namespace std;
 
-const int UniqueSymbols = 1 << CHAR_BIT;
-typedef vector<bool> HuffCode;
-typedef map<char, HuffCode> HuffCodeMap;
+const string magicNum = "7771234777";
+const int asciiVal = 256;
+int charCount[asciiVal];
+string str_code[asciiVal];
 
-class INode
-{
+class huffMap {
 public:
-	const int f;
+	unsigned char* c;
+	int codeBuffer;
+	string NODE;
 
-	virtual ~INode() {}
-
-protected:
-	INode(int f) : f(f) {}
+	huffMap();
+	void INode(string _X);
+	int insertBits(ofstream& outf);
+	string getBits(unsigned char _X);
+	void writeBits(ofstream& outf);
+	~huffMap();
 };
 
-class InternalNode : public INode
+huffMap::huffMap()
 {
-public:
-	INode *const left;
-	INode *const right;
-
-	InternalNode(INode* c0, INode* c1) : INode(c0->f + c1->f), left(c0), right(c1) {}
-	~InternalNode()
-	{
-		delete left;
-		delete right;
-	}
-};
-
-class LeafNode : public INode
-{
-public:
-	const char c;
-
-	LeafNode(int f, char c) : INode(f), c(c) {}
-};
-
-struct NodeCmp
-{
-	bool operator()(const INode* lhs, const INode* rhs) const { return lhs->f > rhs->f; }
-};
-
-INode* BuildTree(const int(&frequencies)[UniqueSymbols])
-{
-	priority_queue<INode*, vector<INode*>, NodeCmp> trees;
-
-	for (int i = 0; i < UniqueSymbols; ++i)
-	{
-		if (frequencies[i] != 0)
-			trees.push(new LeafNode(frequencies[i], (char)i));
-	}
-	while (trees.size() > 1)
-	{
-		INode* childR = trees.top();
-		trees.pop();
-
-		INode* childL = trees.top();
-		trees.pop();
-
-		INode* parent = new InternalNode(childR, childL);
-		trees.push(parent);
-	}
-	return trees.top();
+	codeBuffer = 0;
+	c = (unsigned char*)calloc(1, sizeof(char));
 }
 
-void GenerateCodes(const INode* node, const HuffCode& prefix, HuffCodeMap& outCodes)
+void huffMap::INode(string _X)
 {
-	if (const LeafNode* lf = dynamic_cast<const LeafNode*>(node))
-	{
-		outCodes[lf->c] = prefix;
-	}
-	else if (const InternalNode* in = dynamic_cast<const InternalNode*>(node))
-	{
-		HuffCode leftPrefix = prefix;
-		leftPrefix.push_back(false);
-		GenerateCodes(in->left, leftPrefix, outCodes);
-
-		HuffCode rightPrefix = prefix;
-		rightPrefix.push_back(true);
-		GenerateCodes(in->right, rightPrefix, outCodes);
-	}
+	NODE = _X;
 }
 
-string read(ifstream &inf){
-	string temp;
-	string temp2 = "";
-
-	while (!inf.eof()){
-		getline(inf, temp);
-		temp2 += temp + "\n";
-	}
-	return temp2;
-}
-
-void outputencodingfile(ofstream & outf, string inputfile, int stringlength, string SampleString, HuffCodeMap codes)
+//Returns number of bits inserted
+int huffMap::insertBits(ofstream& outf)
 {
+	int total = 0;
 
-	outf << "asdlkjfsadoutput\n" + inputfile+"\n";
-	for (HuffCodeMap::const_iterator it = codes.begin(); it != codes.end(); ++it)
+	while (NODE.length())
 	{
-		outf << it->first;
-		copy(it->second.begin(), it->second.end(),
-			ostream_iterator<bool>(outf));
-		outf << endl;
-	}
-	outf << "|"<<endl;
-	for (int i = 0; i < stringlength; i++)
-	{
-		for (HuffCodeMap::const_iterator it = codes.begin(); it != codes.end(); ++it)
+		if (NODE[0] == '1')
+			*c |= 1;
+		*c <<= 1;
+		++codeBuffer;
+		++total;
+		NODE.erase(0, 1);
+
+		if (codeBuffer == 7)
 		{
-			if (SampleString[i] == it->first)
-			{
-				stringstream buffer;
-				copy(it->second.begin(), it->second.end(),
-					ostream_iterator<bool>(buffer));
-				string encoded = buffer.str();
-				outf << encoded;
-
-				int counter = 0;
-				string bitss = "";
-				char ascii;
-				for (int k = 0; k < encoded.length(); k++)
-				{
-					if (counter != 8)
-					{
-						bitss += encoded[k];
-						counter++;
-					}
-				}
-			}
+			writeBits(outf);
+			codeBuffer = 0;
+			free(c);
+			c = (unsigned char*)calloc(1, sizeof(char));
 		}
 	}
+
+	//Account for any trailing bits and push them over
+	if (codeBuffer > 0)
+	{
+		*c <<= (8 - codeBuffer);
+		writeBits(outf);
+		free(c);
+		c = (unsigned char*)calloc(1, sizeof(char));
+	}
+
+	return total;
 }
 
-int main()
+//Outputs a char in binary format
+string huffMap::getBits(unsigned char _X)
 {
-	// Build frequency table
-	int frequencies[UniqueSymbols] = { 0 };
-	ifstream inf;
-	string inputfile;
-	//Getting userinput
-	//-------------------------------------
-	char check;
-	cout << "Do you want to compress?\n";
-	cin >> check;
-	if (check =='Y' || 'y')
+	stringstream _itoa;
+
+	int _size = sizeof(unsigned char) * 8;
+
+	for (unsigned _s = 0; _s < _size - 1; ++_s)
 	{
-		//reading in file and Compressing it.(Has map)
-		cout << "Type in the file location\n";
-		cin >> inputfile;
-		inf.open(inputfile);
-		cout << endl << "Type in the file output location" << endl;
-		string outputfile;
-		cin >> outputfile;
-		ofstream outf;
-		outputfile += "compression.crazy";
-		outf.open(outputfile);
-		//-------------------------------------
-
-		string temper = read(inf);
-		const char* SampleString = &temper[0u];
-		const char* ptr = SampleString;
-		while (*ptr != '\0')
-			++frequencies[*ptr++];
-		inf.close();
-		INode* root = BuildTree(frequencies);
-
-		HuffCodeMap codes;
-		GenerateCodes(root, HuffCode(), codes);
-		delete root;
-
-		int stringlength = 0;
-		stringlength = temper.length();
-		outputencodingfile(outf, inputfile, stringlength, SampleString, codes);
-		outf.close();
+		_itoa << ((_X >> (_size - 1 - _s)) & 1);
 	}
-	else
+
+	return _itoa.str();
+}
+
+void huffMap::writeBits(ofstream& outf)
+{
+	outf << *c;
+}
+
+huffMap::~huffMap()
+{
+	if (c)
+		free(c);
+}
+struct node {
+	char ch;
+	int count;
+	node* left;
+	node* right;
+};
+
+class cmp {
+public:
+	bool operator()(const node* lhs, const node* rhs) const
 	{
-		cout << "Please type in the file location to decompress:\n";
-		cin >> inputfile;
-		inf.open(inputfile+"compression.crazy");
-		string decompress="";
-		string security="";
-		inf >> security;
-		if (security != "asdlkjfsadoutput")
+		return lhs->count > rhs->count;
+	}
+};
+
+node* makeNode(char ch, int count)
+{
+	node* tmp = new node;
+	tmp->ch = ch;
+	tmp->count = count;
+	tmp->left = NULL;
+	tmp->right = NULL;
+	return tmp;
+};
+
+typedef priority_queue<node*, vector<node*>, cmp> mypq;
+
+void trie(mypq& _X)
+{
+	while (_X.size() > 1)
+	{
+		node* holder = new node;
+		holder->left = _X.top(); _X.pop();
+		holder->right = _X.top(); _X.pop();
+		holder->count = holder->left->count + holder->right->count;
+		holder->ch = -1;
+		_X.push(holder);
+	}
+}
+
+//Create bit codes by recursively traversing the trie, adding a 0 for left and 1 for right, the key is to remove the end char when the recursion breaks and you have to go up a level
+void code(node* _X)
+{
+	static string bits = "";
+	if (_X->right != NULL)
+	{
+		bits += "1";
+		code(_X->right);
+		bits = bits.substr(0, bits.size() - 1);
+	}
+	if (_X->left != NULL)
+	{
+		bits += "0";
+		code(_X->left);
+		bits = bits.substr(0, bits.size() - 1);
+	}
+	if (!_X->left && !_X->right)
+	{
+		str_code[_X->ch] = bits;
+	}
+}
+
+void count(string file, int& _X) {
+	char letter;
+	ifstream inf(file.c_str());
+
+	inf >> noskipws;
+
+	//Clears array
+	for (int i = 0;i < asciiVal; ++i)
+		charCount[i] = 0;
+
+	//Goes through text and counts
+	while (inf >> letter) {
+		if (letter >= 0 && letter < asciiVal)
 		{
-			cout << "NOPE we are not decompressing this for you. GO away!";
-			system("Pause");
-			return 0;
+			++charCount[letter];
+			++_X;
+		}
+	}
+	inf.close();
+}
+
+//Generates a string of the bit codes in the order they appear in the file
+//Used during encoding
+string NODEstring(string inFile)
+{
+	char input;
+	string NODE = "";
+
+	//Open input stream and create NODE string of entire file
+	ifstream inf(inFile.c_str());
+	inf >> noskipws;
+
+	while (inf >> input)
+	{
+		NODE += str_code[input];
+	}
+
+	inf.close();
+
+	//Append ascii 3 EOT character to signify end of text
+	NODE += str_code[3];
+
+	return NODE;
+}
+
+int main(int argc, char** argv)
+{
+	int rc;
+	char choice;
+	unsigned char inChar=0;
+	string inFile = "", outFile = "", NODE = "", NODEsub = "", mn = "";
+	ofstream outf;
+	ifstream inf;
+	mypq pq;
+	huffMap bchar;
+	int origSize = 0;
+
+	cout << "Menu..." << endl << "e) Encode file" << endl << "d) Decode file" << endl;
+	cin >> choice;
+
+	switch (choice)
+	{
+	case 'e':
+		//Get input filename and set output filename
+		cout << "Enter File Name to Encode: " << endl;
+		cin >> inFile;
+
+		outFile = inFile + ".mpc";
+
+		cout << left << setw(17);
+		cout << "Input filename: " << inFile << endl;
+		cout << left << setw(17);
+		cout << "Output filename:" << outFile << endl;
+		cout << endl;
+
+		//Open output streams
+		outf.open(outFile.c_str());
+
+		//count and populate array of letter occurrences (charCount) and add one EOT char
+		count(inFile, origSize);
+		if (charCount[3] == 0)
+			charCount[3] = 1;
+
+		//Output compressed file header
+		outf << magicNum << endl;
+		outf << inFile << endl;
+		for (int i = 0; i < asciiVal; ++i)
+		{
+			outf << charCount[i] << " ";
+		}
+		outf << endl;
+
+		//Create nodes based on the available ascii characters and push them into the priority queue
+		for (int i = 0; i < asciiVal; ++i)
+		{
+			if (charCount[i] > 0)
+			{
+				node* tmp = makeNode(i, charCount[i]);
+				pq.push(tmp);
+			}
+		}
+
+		//Create trie and bit codes
+		trie(pq);
+		code(pq.top());
+
+		//Create string of bitcodes for actual huffman encoding and do it
+		NODE = NODEstring(inFile);
+		outf << '#';
+		bchar.INode(NODE);
+		outf << noskipws;
+		rc = bchar.insertBits(outf);
+
+		if (rc == NODE.length())
+		{
+			cout << "Encoding succsessful! :)" << endl;
+			cout << "The compression ration is: " << (float)rc / ((float)origSize * 8.0) * 100.0 << "%" << endl;
 		}
 		else
 		{
-			inf.ignore(numeric_limits<streamsize>::max(), '\n');
-			inf.ignore(numeric_limits<streamsize>::max(), '\n');
-			vector<string> decode;
-			int i = 0;
-			string input = "";
-			string compressedinformation="";
-			while (!inf.eof())
-			{
+			cout << "There was an error writing the bits! :(" << endl;
+			cout << "Expected: " << NODE.length() * 8 << " but got: " << rc << endl;
+		}
 
-				inf >> input;
-				if (input == "|")
+		break;
+	case 'd':
+		//Get input filename and set output filename
+		cout << "Enter File Name to Decode: " << endl;
+		cin >> inFile;
+
+		inf.open(inFile.c_str());
+		inf >> mn;
+		if (mn != magicNum)
+		{
+			cout << "Magic number does not match, this is not a valid file..." << endl;
+			return 1;
+		}
+
+		inf >> outFile;
+		if (outFile != inFile.substr(0, inFile.length() - 4))
+		{
+			cout << outFile << " " << inFile.substr(0, inFile.length() - 4) << endl;
+			cout << "File names do not match but will attempt to decode anyway..." << endl;
+		}
+		outf.open(outFile.c_str());
+
+		//Read in the letter count and add valid one to the priority queue
+		for (int i = 0; i < asciiVal; ++i)
+		{
+			inf >> charCount[i];
+			if (charCount[i] > 0)
+			{
+				node* tmp = makeNode(i, charCount[i]);
+				pq.push(tmp);
+			}
+		}
+
+		//Create trie and bit codes
+		trie(pq);
+		code(pq.top());
+
+		while (inChar != '#')
+		{
+			inf >> inChar;
+		}
+
+		inf >> noskipws;
+		//Read in encoded chars and create NODE
+		while (inf >> inChar)
+		{
+			NODE += bchar.getBits(inChar);
+		}
+
+		inf.close();
+
+		for (int i = 0; i < NODE.length(); ++i)
+		{
+			NODEsub += NODE[i];
+			for (int j = 0; j < asciiVal; ++j)
+			{
+				if (NODEsub == str_code[j])
+				{
+					//End of text has been hit and file is over, write newline and exit
+					if (j == 3)
+					{
+						outf << "\n";
+						i = NODE.length();
+						break;
+					}
+					outf << (char)j;
+					NODEsub = "";
 					break;
-				else{
-					decode.push_back(input);
-					//cout << decode[i][0]<<endl;
-					i++;
-				}
-			}
-			while (!inf.eof())
-			{
-				inf >> input;
-				compressedinformation += input;
-				//cout << compressedinformation;
-			}
-
-			for (int j = 2; j < decode.size(); j++)
-			{
-				int lengthofdecode = decode[j].length();
-				string binary = "";
-				for (int k = 0; k < lengthofdecode; k++)
-				{
-					if (k != 0)
-					{
-						binary += decode[j][k];
-					}
-				}
-
-			}
-
-			int lengthof = compressedinformation.length();
-			string checker = "";
-			for (int i = 0; i <= lengthof; i++)
-			{
-				if (compressedinformation[i] == 1)
-					checker += "1";
-				else
-					checker += "0";
-
-				for (int j = 2; j < decode.size(); j++)
-				{
-					int lengthofdecode = decode[j].length();
-					string binary = "";
-					for (int k = 0; k < lengthofdecode; k++)
-					{
-						if (k != 0)
-						{
-							binary += decode[j][k];
-						}
-					}
-					if (checker == binary)
-					{
-						cout << decode[j][0] << endl;
-						cout << checker;
-						checker = "";
-					}
 				}
 			}
 		}
-		inf.close();
+
+		break;
+	default:
+		cout << "Invalid choice...." << endl;
+		break;
 	}
 
-	system("Pause");
+	outf.close();
+
 	return 0;
 }
